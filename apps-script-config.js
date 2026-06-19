@@ -3,7 +3,7 @@
 // Пример:
 // window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 
-window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyfEnPNoReywX2nU22LjfSmCbbEbZqDTZcAhy0zEc41jVskUOGTO3qehoaMxBw5rciiew/exec";
+window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyKDfKo6YJrpm9djIZMhY4aosNqDt1EWFMUD-8_wy_CDIdhSAG1mg_spzQU_Mqh6UhRFQ/exec";
 
 // Токен оставлен только для совместимости со старыми версиями.
 // В новом Code.gs он не блокирует отправку.
