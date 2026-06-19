@@ -2,6 +2,7 @@
  * ИУС 2.0 — бесплатная общая база работ
  * Google Таблица + Google Apps Script + Google Drive
  * Исправлено: сохранение аудио формата data:audio/webm;codecs=opus;base64,...
+ * Добавлено: отдельная авторизация Google Drive через authorizeIUS().
  *
  * Важно:
  * 1) Код вставлять в Apps Script, открытый из Google Таблицы: Расширения → Apps Script.
@@ -27,7 +28,30 @@ const HEADERS = [
 function setupIUS() {
   ensureSheet_();
   getFolder_();
-  return 'ИУС 2.0 готов. Теперь разверните Apps Script как веб-приложение.';
+  return 'ИУС 2.0 готов. Теперь запустите authorizeIUS(), затем разверните Apps Script как веб-приложение.';
+}
+
+/**
+ * ВАЖНО: запустите эту функцию вручную из редактора Apps Script.
+ * Она нужна, чтобы Google выдал разрешение на DriveApp.
+ * Без этого аудио будет приходить с ошибкой: "Доступ запрещен: DriveApp".
+ */
+function authorizeIUS() {
+  ensureSheet_();
+  const folder = getFolder_();
+  const testBlob = Utilities.newBlob('Проверка доступа ИУС 2.0', 'text/plain', 'ius-permission-test.txt');
+  const testFile = folder.createFile(testBlob);
+  testFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  testFile.setTrashed(true);
+  return 'Разрешения выданы: таблица работает, DriveApp работает. Теперь сделайте новое развертывание веб-приложения.';
+}
+
+/**
+ * Дополнительная проверка Drive. Запустите, если аудио не сохраняется.
+ */
+function testDriveAccess() {
+  const folder = getFolder_();
+  return { ok: true, folderName: folder.getName(), folderUrl: folder.getUrl() };
 }
 
 function doPost(e) {
