@@ -1,6 +1,7 @@
 /**
  * ИУС 2.0 — бесплатная общая база работ
  * Google Таблица + Google Apps Script + Google Drive
+ * Исправлено: сохранение аудио формата data:audio/webm;codecs=opus;base64,...
  *
  * Важно:
  * 1) Код вставлять в Apps Script, открытый из Google Таблицы: Расширения → Apps Script.
@@ -187,30 +188,69 @@ function makeRow_(submission, audioInfo, audioError) {
 function saveAudio_(submission) {
   const audio = submission.audio || {};
   const fileName = audio.fileName || ('answer-' + (submission.id || Date.now()) + '.webm');
-  const mimeType = audio.mimeType || 'audio/webm';
+  const fallbackMimeType = normalizeMimeType_(audio.mimeType || 'audio/webm');
   const size = audio.size || '';
 
   if (!audio.dataUrl) {
-    return { fileName, mimeType, size, fileId: '', fileUrl: '', directUrl: '' };
+    return { fileName, mimeType: fallbackMimeType, size, fileId: '', fileUrl: '', directUrl: '' };
   }
 
-  const match = String(audio.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error('Неверный формат аудио dataUrl');
-
-  const bytes = Utilities.base64Decode(match[2]);
-  const blob = Utilities.newBlob(bytes, match[1] || mimeType, fileName);
+  const parsed = parseAudioDataUrl_(audio.dataUrl, fallbackMimeType);
+  const bytes = Utilities.base64Decode(parsed.base64);
+  const blob = Utilities.newBlob(bytes, parsed.mimeType || fallbackMimeType, fileName);
   const folder = getFolder_();
   const file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
   return {
     fileName,
-    mimeType: match[1] || mimeType,
+    mimeType: parsed.mimeType || fallbackMimeType,
     size,
     fileId: file.getId(),
     fileUrl: file.getUrl(),
     directUrl: 'https://drive.google.com/uc?export=download&id=' + file.getId()
   };
+}
+
+function parseAudioDataUrl_(dataUrl, fallbackMimeType) {
+  let value = String(dataUrl || '').trim();
+
+  // Иногда строка приходит из формы URL-кодированной. Аккуратно раскодируем.
+  try {
+    if (/^data%3A/i.test(value) || value.indexOf('%2C') !== -1 || value.indexOf('%3B') !== -1) {
+      value = decodeURIComponent(value);
+    }
+  } catch (e) {}
+
+  // В base64 не должно быть переносов. Если плюс превратился в пробел, возвращаем плюс.
+  value = value.replace(/[\r\n\t]/g, '').replace(/ /g, '+');
+
+  const commaIndex = value.indexOf(',');
+  if (!/^data:/i.test(value) || commaIndex < 0) {
+    throw new Error('Неверный формат аудио dataUrl: нет префикса data:...base64,');
+  }
+
+  const meta = value.slice(5, commaIndex);
+  const base64 = value.slice(commaIndex + 1);
+  const parts = meta.split(';').filter(Boolean);
+  const mimeType = normalizeMimeType_(parts[0] || fallbackMimeType || 'audio/webm');
+  const hasBase64 = parts.some(part => String(part).toLowerCase() === 'base64');
+
+  // Chrome часто даёт такой формат: data:audio/webm;codecs=opus;base64,...
+  // Старый код принимал только data:audio/webm;base64,... и поэтому писал ошибку.
+  if (!hasBase64) {
+    throw new Error('Неверный формат аудио dataUrl: нет ;base64');
+  }
+  if (!base64 || base64.length < 20) {
+    throw new Error('Неверный формат аудио dataUrl: пустая base64-строка');
+  }
+
+  return { mimeType, base64 };
+}
+
+function normalizeMimeType_(mimeType) {
+  // Для Drive нужен чистый MIME без параметров codecs=opus.
+  return String(mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm';
 }
 
 function listSubmissions_(limit) {
@@ -388,6 +428,32 @@ function testAddRow() {
       fileName: 'no-audio.webm',
       mimeType: 'audio/webm',
       size: 0
+    }
+  });
+}
+
+
+/**
+ * Быстрый тест формата dataUrl с codecs=opus.
+ * После запуска должна появиться строка и маленький тестовый файл в папке Drive.
+ */
+function testAudioDataUrlWithCodecs() {
+  return saveSubmission_({
+    app: 'saha-exam-v2',
+    type: 'student-submission',
+    version: 5,
+    id: makeId_('audio-test'),
+    createdAt: new Date().toISOString(),
+    sentAt: new Date().toISOString(),
+    status: 'sent',
+    student: { fullName: 'Тест аудио', className: '9А', login: 'audio-test' },
+    task: { id: 1, title: 'Проверка аудио dataUrl', instruction: '' },
+    note: 'Проверка формата data:audio/webm;codecs=opus;base64,...',
+    audio: {
+      fileName: 'audio-test.webm',
+      mimeType: 'audio/webm;codecs=opus',
+      size: 32,
+      dataUrl: 'data:audio/webm;codecs=opus;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28ybXA0MQ=='
     }
   });
 }

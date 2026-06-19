@@ -544,48 +544,6 @@
             };
         }
 
-        function appsScriptJsonp(action, params = {}) {
-            return new Promise((resolve, reject) => {
-                if (!isAppsScriptConfigured()) {
-                    reject(new Error("Apps Script не настроен"));
-                    return;
-                }
-                const callbackName = "iusCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-                const query = new URLSearchParams({
-                    action,
-                    token: window.APPS_SCRIPT_TOKEN || "IUS2026",
-                    callback: callbackName,
-                    _: Date.now().toString(),
-                    ...params
-                });
-                const script = document.createElement("script");
-                let timeout = null;
-                const cleanup = () => {
-                    if (timeout) clearTimeout(timeout);
-                    delete window[callbackName];
-                    script.remove();
-                };
-                timeout = setTimeout(() => {
-                    cleanup();
-                    reject(new Error("Apps Script долго не отвечает"));
-                }, 15000);
-                window[callbackName] = data => {
-                    cleanup();
-                    resolve(data);
-                };
-                script.onerror = () => {
-                    cleanup();
-                    reject(new Error("Не удалось получить ответ Apps Script"));
-                };
-                script.src = getAppsScriptUrl() + "?" + query.toString();
-                document.body.appendChild(script);
-            });
-        }
-
-        function wait(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-
         function postToAppsScriptByForm(payload) {
             return new Promise((resolve, reject) => {
                 if (!isAppsScriptConfigured()) {
@@ -630,6 +588,7 @@
                 document.body.appendChild(form);
                 form.submit();
 
+                // Даже если Google не отдаст событие чтения из-за политики браузера, сама отправка формы обычно проходит.
                 setTimeout(() => {
                     if (!finished) {
                         finished = true;
@@ -638,15 +597,6 @@
                     }
                 }, 4500);
             });
-        }
-
-        async function verifySubmissionSaved(submissionId) {
-            await wait(2500);
-            const response = await appsScriptJsonp("get", { id: submissionId });
-            if (!response || !response.ok || !response.item) {
-                throw new Error(response?.error || "Работа не появилась в таблице");
-            }
-            return response.item;
         }
 
         async function sendSubmissionToTeacher() {
@@ -665,23 +615,12 @@
                 const submission = collectSubmission();
                 submission.sentAt = new Date().toISOString();
                 await postToAppsScriptByForm(getAppsScriptPayload("submit", submission));
-
-                button.textContent = "Проверяем таблицу...";
-                const savedItem = await verifySubmissionSaved(submission.id);
-
-                showToast("Работа записана в Google Таблицу");
+                showToast("Работа отправлена учителю");
                 const status = document.getElementById("apps-script-status");
-                if (status) {
-                    const audioMessage = savedItem.audioError
-                        ? "Работа есть в таблице, но аудио не сохранилось в Drive. Скачайте JSON как запасной вариант."
-                        : "Работа записана в таблицу. Учитель увидит её после нажатия «Показать отправленные работы».";
-                    status.textContent = audioMessage;
-                }
+                if (status) status.textContent = "Работа отправлена. Учитель увидит её на странице проверки после нажатия «Показать отправленные работы».";
             } catch (error) {
                 console.error(error);
-                showToast("Работа не записалась в таблицу. Обновите Code.gs и разверните новую версию Apps Script.", "error");
-                const status = document.getElementById("apps-script-status");
-                if (status) status.textContent = "Ошибка: " + (error.message || error) + ". Проверьте Code.gs, ссылку /exec и доступ «Все».";
+                showToast("Не удалось отправить работу. Проверьте ссылку Apps Script и доступ «Все».", "error");
             } finally {
                 button.disabled = false;
                 button.textContent = oldText;
