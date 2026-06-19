@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="sah">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Түмүк собеседование — ученик</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html" aria-label="На главную">
+            <span class="brand-mark">С</span>
+            <span>
+                <strong>Саха тыла</strong>
+                <small>Тренажёр собеседования</small>
+            </span>
+        </a>
+        <nav class="topnav">
+            <a class="active" href="index.html">Ученик</a>
+            <a href="expert.html">Учитель / проверка</a>
+        </nav>
+    </header>
+
+    <main class="container wide">
+        <section class="hero-card">
+            <div>
+                <p class="eyebrow">Түмүк собеседование · ИУС 2.0</p>
+                <h1>Интерактивный тренажёр итогового собеседования по саха тылу</h1>
+                <p class="lead">Ученик выполняет задания, записывает устный ответ, а учитель проверяет работу по критериям и формирует протокол.</p>
+            </div>
+            <div class="status-card" id="session-status">Вход не выполнен</div>
+        </section>
+
+        <section id="role-choice" class="choice-grid">
+            <article class="choice-card">
+                <span class="choice-icon">👨‍🎓</span>
+                <h2>Я ученик</h2>
+                <p class="muted">Войти в кабинет, выбрать задание, запустить таймер, записать ответ и скачать файл для учителя.</p>
+                <button class="primary full" onclick="openStudentAuth()">Войти как ученик</button>
+            </article>
+
+            <article class="choice-card">
+                <span class="choice-icon">👩‍🏫</span>
+                <h2>Я учитель</h2>
+                <p class="muted">Открыть страницу проверки: загрузить работу ученика, прослушать запись, поставить баллы и скачать протокол.</p>
+                <a class="button-link secondary full" href="expert.html">Перейти к проверке</a>
+            </article>
+        </section>
+
+        <section class="panel project-info">
+            <h2>О проекте</h2>
+            <p>ИУС 2.0 помогает готовиться к итоговому собеседованию по саха тылу: ученик тренирует чтение, пересказ, монолог и диалог, а учитель получает удобный инструмент проверки устных ответов.</p>
+            <div class="step-list">
+                <span>1. Вход</span>
+                <span>2. Задание</span>
+                <span>3. Таймер</span>
+                <span>4. Запись</span>
+                <span>5. Проверка</span>
+            </div>
+            <p class="hint">Версия может работать в двух режимах: через бесплатную Google Таблицу и Apps Script или по-старому через скачивание JSON-файла. Если Apps Script ещё не настроен, кнопка отправки предупредит об этом.</p>
+        </section>
+
+        <section id="auth-view" class="grid two auth-grid hidden">
+            <div class="panel">
+                <div class="back-line">
+                    <button class="ghost" onclick="backToRoleChoice()">← Назад</button>
+                </div>
+                <h2>Вход ученика</h2>
+                <p class="muted">Введите логин и пароль. Данные хранятся только в этом браузере.</p>
+                <label>Логин</label>
+                <input id="login-name" type="text" autocomplete="username" placeholder="например: ivanov8a">
+                <label>Пароль</label>
+                <input id="login-password" type="password" autocomplete="current-password" placeholder="пароль">
+                <button class="primary full" onclick="loginUser()">Войти</button>
+                <p class="hint">Учитель работает на отдельной странице: <a href="expert.html">Учитель / проверка</a>.</p>
+            </div>
+
+            <div class="panel">
+                <h2>Регистрация ученика</h2>
+                <p class="muted">Создайте аккаунт ученика для работы с заданиями.</p>
+                <label>ФИО</label>
+                <input id="reg-fullname" type="text" placeholder="Фамилия Имя">
+                <label>Класс</label>
+                <input id="reg-class" type="text" placeholder="например: 9А">
+                <label>Логин</label>
+                <input id="reg-login" type="text" autocomplete="username" placeholder="латиницей без пробелов">
+                <label>Пароль</label>
+                <input id="reg-password" type="password" autocomplete="new-password" placeholder="минимум 4 символа">
+                <button class="secondary full" onclick="registerUser()">Зарегистрироваться</button>
+            </div>
+        </section>
+
+        <section id="student-view" class="hidden">
+            <div class="student-head panel compact">
+                <div>
+                    <h2 id="student-title">Кабинет ученика</h2>
+                    <p class="muted" id="student-subtitle"></p>
+                </div>
+                <div class="student-actions">
+                    <button class="ghost" onclick="resetStudentProgress()">Сбросить задание</button>
+                    <button class="danger-light" onclick="logout()">Выйти</button>
+                </div>
+            </div>
+
+            <div class="tabs" role="tablist" aria-label="Задания">
+                <button class="tab-btn active" onclick="showTask(1)">1 сорудах<br><span>Ааҕыы</span></button>
+                <button class="tab-btn" onclick="showTask(2)">2 сорудах<br><span>Кэпсээһин</span></button>
+                <button class="tab-btn" onclick="showTask(3)">3 сорудах<br><span>Монолог</span></button>
+                <button class="tab-btn" onclick="showTask(4)">4 сорудах<br><span>Диалог</span></button>
+            </div>
+
+            <div class="grid main-grid">
+                <article id="task-content" class="task-box"></article>
+
+                <aside class="controls-box">
+                    <div class="timer-card">
+                        <span id="timer-label">Бэлэмнэнии кэмэ</span>
+                        <strong id="time">02:00</strong>
+                    </div>
+                    <div class="buttons stacked">
+                        <button id="timer-btn" onclick="toggleTimer()">▶ Запустить таймер</button>
+                        <button id="ready-record-btn" class="ready-btn" onclick="startAnswerNow()">✅ Готов — начать запись</button>
+                        <button id="record-btn" class="record-off" onclick="toggleRecording()" disabled>🎙 Начать запись</button>
+                    </div>
+                    <p id="record-status" class="muted center">Сначала запустите таймер подготовки.</p>
+
+                    <div id="audio-playback-container" class="hidden result-box">
+                        <h3>Ответ записан</h3>
+                        <audio id="audio-playback" controls></audio>
+                        <label>Комментарий ученика</label>
+                        <textarea id="student-note" rows="4" placeholder="Можно написать тему, выбранный вариант или комментарий для учителя"></textarea>
+                        <button id="send-submission-btn" class="primary full" onclick="sendSubmissionToTeacher()">📤 Отправить работу учителю</button>
+                        <button class="ghost full" onclick="downloadSubmission()">⬇ Скачать JSON, если нет интернета</button>
+                        <p id="apps-script-status" class="hint">Если Apps Script настроен, работа появится у учителя на странице проверки. JSON остаётся запасным вариантом.</p>
+                    </div>
+                </aside>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="apps-script-config.js"></script>
+
+    <script>
+        const USERS_KEY = "saha_exam_users_v2";
+        const SESSION_KEY = "saha_exam_session_v2";
+        const APPS_SCRIPT_FALLBACK_MESSAGE = "Apps Script не настроен. Скачайте JSON или заполните apps-script-config.js";
+
+        const examData = {
+            1: {
+                title: "1 сорудах. Тэкиһи ааҕыы",
+                mode: "reading",
+                prep: 120,
+                answer: 120,
+                instruction: "Тэкиһи бэлэмнэнии кэмигэр (2 мүнүүтэ) искитигэр аах. Онтон иһитиннэри улаханнык, чуолкайдык аах. Эйиэхэ 2 мүнүүтэ бэриллэр.",
+                content: "<strong>Тэкистэ угуллар сирэ:</strong><br><br>Платон Алексеевич Ойуунускай — саха советскай литературатын төрүттээччи, улуу поэт, суруйааччы уонна общественнай диэйэтел. Кини 1893 сыллаахха Таатта улууһугар төрөөбүтэ. Ойуунускай саха тылын, култууратын сайыннарыыга сүҥкэн кылааты киллэрбитэ. Кини хоһоонноро уонна кэпсээннэрэ норуот туһугар олоҕу уонна кырдьыгы туойаллар. «Ньургун Боотур» олонхону устан, бэчээттэтэн хаалларбыта саха норуотун үйэлээх баайа буолар..."
+            },
+            2: {
+                title: "2 сорудах. Тэкиһи сиһилии кэпсээһин",
+                mode: "retell",
+                prep: 120,
+                answer: 180,
+                instruction: "Бэрилллибит тэкиһи уларыппакка, сиһилии кэпсээ. Кэпсээри гынар сиригэр Платон Ойуунускай туһунан атын дьон эппит тылларын (цитатаны) хайаан да туттуохтааххын. Бэлэмнэнии кэмэ — 2 мүнүүтэ. Кэпсээһин — 3 мүнүүтэҕэ диэри.",
+                content: "<em>Цитата: «Платон Алексеевич Ойуунускай — саха норуотун киэн туттуута, үйэлээх олоҕун өйдөбүнньүгэ» (Народнай суруйааччы Суорун Омоллоон).</em><br><br><strong>Сүбэ:</strong> Бэлэмнэнэр кэмигэр тэкис сүрүн санааларын кумааҕыга бэлиэтэн."
+            },
+            3: {
+                title: "3 сорудах. Монолог (Тыл этии)",
+                mode: "monologue",
+                prep: 60,
+                answer: 180,
+                instruction: "Үс тиэмэттэн биирин талан баран, сиһилии кэпсээ. Кэпсээри гынар тиэмэҥ туһунан 10-тан тахса этиилээх тиэкистэ оҥор. Бэлэмнэнии кэмэ — 1 мүнүүтэ, саҥарыы — 3 мүнүүтэ.",
+                content: "<strong>Тиэмилэр:</strong><br>1. Сөбүлүүр дьарыгым (Хаартыскаҕа олоҕуран суруйуу)<br>2. Мин айаннааһыным (Ааспыты кэпсээһин)<br>3. Оскуолаҕа төлөпүөн наада дуо? (Ырытыы, санааны этии)"
+            },
+            4: {
+                title: "4 сорудах. Диалог",
+                mode: "dialogue",
+                prep: 0,
+                answer: 180,
+                instruction: "3-с сорудахха талбыт тиэмэҥ уонна кэпсээбиппэр олоҕуран, Саха тылын учууталын (экзаменатор) ыйытыыларыгар толору хоруйдаа. Бэлэмнэнии кэмэ суох, тута эппиэттигин.",
+                content: "<strong>Экзаменатор ыйытыылара (холобур):</strong><br>1. Эн санаатыгар, тоҕо оҕо аймах сөбүлүүр дьарыктаах буолуохтааҕый?<br>2. Сөбүлүүр дьарык киһи идэтин таларыгар көмөлоһөр дуо?<br>3. Төрөппүттэр бэйэлэрин дьарыктарын оҕолоругар күһэйэн биэриэхтээхтэр дуо?"
+            }
+        };
+
+        let currentTask = 1;
+        let timer = null;
+        let timeLeft = 120;
+        let isPreparing = true;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let currentAudio = null;
+        let currentUser = null;
+        let activeStream = null;
+
+        function getUsers() {
+            return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        async function hashPassword(value) {
+            if (window.crypto && crypto.subtle) {
+                const data = new TextEncoder().encode(value);
+                const hash = await crypto.subtle.digest("SHA-256", data);
+                return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+            }
+            return btoa(unescape(encodeURIComponent(value)));
+        }
+
+        function makeId(prefix) {
+            return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        }
+
+        function showToast(message, type = "ok") {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = "toast " + type;
+            setTimeout(() => toast.className = "toast hidden", 3200);
+        }
+
+        function getAppsScriptUrl() {
+            const rawUrl = String(window.APPS_SCRIPT_WEB_APP_URL || "").trim();
+            if (!rawUrl) return "";
+            return rawUrl.replace(/\/dev(\?.*)?$/, "/exec").replace(/\?.*$/, "");
+        }
+
+        function isAppsScriptConfigured() {
+            const url = getAppsScriptUrl();
+            return Boolean(url && (url.startsWith("https://script.google.com/") || url.startsWith("https://script.googleusercontent.com/")));
+        }
+
+        function getAppsScriptPayload(action, submission) {
+            return {
+                app: "saha-exam-v2",
+                action,
+                submission
+            };
+        }
+
+        function updateAppsScriptStatus() {
+            const status = document.getElementById("apps-script-status");
+            if (!status) return;
+            if (isAppsScriptConfigured()) {
+                status.textContent = "Google Таблица подключена: работа будет отправлена в общую базу учителя.";
+            } else {
+                status.textContent = "Google Таблица пока не настроена: можно скачать JSON и передать учителю вручную.";
+            }
+        }
+
+        function openStudentAuth() {
+            document.getElementById("role-choice").classList.add("hidden");
+            document.querySelector(".project-info")?.classList.add("hidden");
+            document.getElementById("auth-view").classList.remove("hidden");
+            document.getElementById("login-name").focus();
+        }
+
+        function backToRoleChoice() {
+            document.getElementById("auth-view").classList.add("hidden");
+            document.getElementById("role-choice").classList.remove("hidden");
+            document.querySelector(".project-info")?.classList.remove("hidden");
+        }
+
+        async function registerUser() {
+            const role = "student";
+            const fullName = document.getElementById("reg-fullname").value.trim();
+            const className = document.getElementById("reg-class").value.trim();
+            const login = document.getElementById("reg-login").value.trim().toLowerCase();
+            const password = document.getElementById("reg-password").value;
+
+            if (!fullName || !login || !password) return showToast("Заполните ФИО, логин и пароль", "error");
+            if (password.length < 4) return showToast("Пароль должен быть минимум 4 символа", "error");
+            if (!className) return showToast("Укажите класс ученика", "error");
+
+            const users = getUsers();
+            if (users.some(user => user.login === login)) return showToast("Такой логин уже есть", "error");
+
+            const user = {
+                id: makeId(role),
+                role,
+                fullName,
+                className,
+                login,
+                passwordHash: await hashPassword(password),
+                createdAt: new Date().toISOString()
+            };
+            users.push(user);
+            saveUsers(users);
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
+            showToast("Регистрация выполнена");
+            startSession(user);
+        }
+
+        async function loginUser() {
+            const login = document.getElementById("login-name").value.trim().toLowerCase();
+            const password = document.getElementById("login-password").value;
+            const passwordHash = await hashPassword(password);
+            const user = getUsers().find(item => item.login === login && item.role === "student" && item.passwordHash === passwordHash);
+            if (!user) return showToast("Логин или пароль неверный", "error");
+
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
+            startSession(user);
+        }
+
+        function startSession(user) {
+            currentUser = user;
+            document.getElementById("role-choice").classList.add("hidden");
+            document.querySelector(".project-info")?.classList.add("hidden");
+            document.getElementById("auth-view").classList.add("hidden");
+            document.getElementById("student-view").classList.remove("hidden");
+            document.getElementById("session-status").textContent = `${user.fullName} · ${user.className}`;
+            document.getElementById("student-title").textContent = `Кабинет ученика: ${user.fullName}`;
+            document.getElementById("student-subtitle").textContent = `Класс: ${user.className}. Запишите ответ и отправьте работу учителю.`;
+            renderTask();
+            updateAppsScriptStatus();
+        }
+
+        function logout() {
+            localStorage.removeItem(SESSION_KEY);
+            location.reload();
+        }
+
+        function restoreSession() {
+            const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+            if (!session) return;
+            const user = getUsers().find(item => item.id === session.userId);
+            if (!user || user.role !== "student") return;
+            startSession(user);
+        }
+
+        function renderTask() {
+            const task = examData[currentTask];
+            document.getElementById("task-content").innerHTML = `
+                <div class="task-header">
+                    <span class="badge">Задание ${currentTask}</span>
+                    <h2>${task.title}</h2>
+                </div>
+                <p class="instruction"><em>${task.instruction}</em></p>
+                <div class="content-body">${task.content}</div>
+            `;
+            resetTimerLogic();
+        }
+
+        function showTask(taskNum) {
+            currentTask = taskNum;
+            document.querySelectorAll(".tab-btn").forEach((btn, idx) => {
+                btn.classList.toggle("active", idx === taskNum - 1);
+            });
+            renderTask();
+        }
+
+        function resetTimerLogic() {
+            clearInterval(timer);
+            timer = null;
+            stopRecordingIfNeeded();
+            currentAudio = null;
+            const task = examData[currentTask];
+            isPreparing = task.prep > 0;
+            timeLeft = isPreparing ? task.prep : task.answer;
+            document.getElementById("timer-btn").innerText = "▶ Запустить таймер";
+            document.getElementById("timer-label").innerText = isPreparing ? "Бэлэмнэнии кэмэ" : "Хоруйдууруҥ";
+            document.getElementById("time").innerText = formatTime(timeLeft);
+            document.getElementById("record-btn").disabled = isPreparing;
+            document.getElementById("record-btn").innerText = "🎙 Начать запись";
+            document.getElementById("record-btn").className = "record-off";
+            const readyBtn = document.getElementById("ready-record-btn");
+            readyBtn.classList.toggle("hidden", !isPreparing);
+            readyBtn.disabled = !isPreparing;
+            document.getElementById("record-status").textContent = isPreparing ? "Можно ждать таймер или нажать «Готов — начать запись»." : "Можно сразу записывать ответ.";
+            document.getElementById("audio-playback-container").classList.add("hidden");
+            document.getElementById("audio-playback").removeAttribute("src");
+            document.getElementById("student-note").value = "";
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
+            const secs = (seconds % 60).toString().padStart(2, "0");
+            return `${mins}:${secs}`;
+        }
+
+        function toggleTimer() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+                document.getElementById("timer-btn").innerText = "▶ Продолжить таймер";
+            } else {
+                document.getElementById("timer-btn").innerText = "⏸ Остановить таймер";
+                timer = setInterval(updateTimer, 1000);
+            }
+        }
+
+        function switchToAnswerMode(message = "Можно записывать ответ.") {
+            clearInterval(timer);
+            timer = null;
+            const task = examData[currentTask];
+            isPreparing = false;
+            timeLeft = task.answer;
+            document.getElementById("timer-label").innerText = "Хоруйдууруҥ";
+            document.getElementById("time").innerText = formatTime(timeLeft);
+            document.getElementById("record-btn").disabled = false;
+            document.getElementById("ready-record-btn").classList.add("hidden");
+            document.getElementById("ready-record-btn").disabled = true;
+            document.getElementById("record-status").textContent = message;
+        }
+
+        async function startAnswerNow() {
+            switchToAnswerMode("Запускаем запись ответа...");
+            const started = await toggleRecording();
+            if (started) {
+                document.getElementById("timer-btn").innerText = "⏸ Остановить таймер";
+                timer = setInterval(updateTimer, 1000);
+            } else {
+                document.getElementById("timer-btn").innerText = "▶ Запустить таймер ответа";
+                document.getElementById("record-status").textContent = "Нажмите «Начать запись», когда разрешите микрофон.";
+            }
+        }
+
+        function updateTimer() {
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                timer = null;
+                const task = examData[currentTask];
+                if (isPreparing) {
+                    showToast("Бэлэмнэнии кэмэ бүттэ! Теперь можно записывать ответ.");
+                    switchToAnswerMode("Нажмите кнопку записи и отвечайте вслух.");
+                    document.getElementById("timer-btn").innerText = "⏸ Остановить таймер";
+                    timer = setInterval(updateTimer, 1000);
+                } else {
+                    showToast("Бириэмэ бүттэ!", "warn");
+                    if (mediaRecorder && mediaRecorder.state === "recording") stopRecordingIfNeeded();
+                    document.getElementById("timer-btn").innerText = "▶ Запустить таймер";
+                }
+                document.getElementById("time").innerText = formatTime(timeLeft);
+                return;
+            }
+            timeLeft--;
+            document.getElementById("time").innerText = formatTime(timeLeft);
+        }
+
+        function getSupportedMimeType() {
+            const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+            return types.find(type => window.MediaRecorder && MediaRecorder.isTypeSupported(type)) || "";
+        }
+
+        async function toggleRecording() {
+            const recordBtn = document.getElementById("record-btn");
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showToast("Браузер не поддерживает запись микрофона", "error");
+                return false;
+            }
+
+            if (recordBtn.classList.contains("record-off")) {
+                try {
+                    audioChunks = [];
+                    const mimeType = getSupportedMimeType();
+                    activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(activeStream, mimeType ? { mimeType } : undefined);
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data && event.data.size > 0) audioChunks.push(event.data);
+                    };
+                    mediaRecorder.onstop = async () => {
+                        const type = mediaRecorder.mimeType || "audio/webm";
+                        const audioBlob = new Blob(audioChunks, { type });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        currentAudio = {
+                            blob: audioBlob,
+                            dataUrl: await blobToDataURL(audioBlob),
+                            mimeType: type,
+                            size: audioBlob.size
+                        };
+                        document.getElementById("audio-playback").src = audioUrl;
+                        document.getElementById("audio-playback-container").classList.remove("hidden");
+                        document.getElementById("record-status").textContent = "Запись готова. Отправьте работу учителю или скачайте JSON.";
+                        stopTracks();
+                    };
+                    mediaRecorder.start();
+                    recordBtn.innerText = "⏹ Остановить запись";
+                    recordBtn.className = "record-on";
+                    document.getElementById("record-status").textContent = "Идёт запись ответа...";
+                    return true;
+                } catch (error) {
+                    showToast("Разрешите доступ к микрофону и попробуйте снова", "error");
+                    return false;
+                }
+            } else {
+                stopRecordingIfNeeded();
+                return true;
+            }
+        }
+
+        function stopRecordingIfNeeded() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+            document.getElementById("record-btn").innerText = "🎙 Начать запись";
+            document.getElementById("record-btn").className = "record-off";
+        }
+
+        function stopTracks() {
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+                activeStream = null;
+            }
+        }
+
+        function blobToDataURL(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function collectSubmission() {
+            if (!currentAudio) return null;
+            const task = examData[currentTask];
+            const ext = currentAudio.mimeType.includes("ogg") ? "ogg" : currentAudio.mimeType.includes("mp4") ? "m4a" : "webm";
+            return {
+                app: "saha-exam-v2",
+                type: "student-submission",
+                version: 3,
+                id: makeId("work"),
+                createdAt: new Date().toISOString(),
+                status: "sent",
+                student: {
+                    id: currentUser.id,
+                    fullName: currentUser.fullName,
+                    className: currentUser.className,
+                    login: currentUser.login
+                },
+                task: {
+                    id: currentTask,
+                    title: task.title,
+                    instruction: task.instruction
+                },
+                note: document.getElementById("student-note").value.trim(),
+                audio: {
+                    fileName: `answer-task-${currentTask}.${ext}`,
+                    mimeType: currentAudio.mimeType,
+                    size: currentAudio.size,
+                    dataUrl: currentAudio.dataUrl
+                }
+            };
+        }
+
+        function appsScriptJsonp(action, params = {}) {
+            return new Promise((resolve, reject) => {
+                if (!isAppsScriptConfigured()) {
+                    reject(new Error("Apps Script не настроен"));
+                    return;
+                }
+                const callbackName = "iusCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+                const query = new URLSearchParams({
+                    action,
+                    token: window.APPS_SCRIPT_TOKEN || "IUS2026",
+                    callback: callbackName,
+                    _: Date.now().toString(),
+                    ...params
+                });
+                const script = document.createElement("script");
+                let timeout = null;
+                const cleanup = () => {
+                    if (timeout) clearTimeout(timeout);
+                    delete window[callbackName];
+                    script.remove();
+                };
+                timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error("Apps Script долго не отвечает"));
+                }, 15000);
+                window[callbackName] = data => {
+                    cleanup();
+                    resolve(data);
+                };
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("Не удалось получить ответ Apps Script"));
+                };
+                script.src = getAppsScriptUrl() + "?" + query.toString();
+                document.body.appendChild(script);
+            });
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function postToAppsScriptByForm(payload) {
+            return new Promise((resolve, reject) => {
+                if (!isAppsScriptConfigured()) {
+                    reject(new Error(APPS_SCRIPT_FALLBACK_MESSAGE));
+                    return;
+                }
+
+                const iframeName = "iusSubmitFrame_" + Date.now();
+                const iframe = document.createElement("iframe");
+                iframe.name = iframeName;
+                iframe.style.display = "none";
+
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = getAppsScriptUrl();
+                form.target = iframeName;
+                form.enctype = "application/x-www-form-urlencoded";
+                form.style.display = "none";
+
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = "payload";
+                input.value = JSON.stringify(payload);
+                form.appendChild(input);
+
+                let finished = false;
+                const cleanup = () => {
+                    setTimeout(() => {
+                        form.remove();
+                        iframe.remove();
+                    }, 1000);
+                };
+
+                iframe.onload = () => {
+                    if (finished) return;
+                    finished = true;
+                    cleanup();
+                    resolve();
+                };
+
+                document.body.appendChild(iframe);
+                document.body.appendChild(form);
+                form.submit();
+
+                setTimeout(() => {
+                    if (!finished) {
+                        finished = true;
+                        cleanup();
+                        resolve();
+                    }
+                }, 4500);
+            });
+        }
+
+        async function verifySubmissionSaved(submissionId) {
+            await wait(2500);
+            const response = await appsScriptJsonp("get", { id: submissionId });
+            if (!response || !response.ok || !response.item) {
+                throw new Error(response?.error || "Работа не появилась в таблице");
+            }
+            return response.item;
+        }
+
+        async function sendSubmissionToTeacher() {
+            if (!currentAudio) return showToast("Сначала запишите ответ", "error");
+            if (!isAppsScriptConfigured()) {
+                showToast(APPS_SCRIPT_FALLBACK_MESSAGE, "error");
+                updateAppsScriptStatus();
+                return;
+            }
+
+            const button = document.getElementById("send-submission-btn");
+            const oldText = button.textContent;
+            button.disabled = true;
+            button.textContent = "Отправляем...";
+            try {
+                const submission = collectSubmission();
+                submission.sentAt = new Date().toISOString();
+                await postToAppsScriptByForm(getAppsScriptPayload("submit", submission));
+
+                button.textContent = "Проверяем таблицу...";
+                const savedItem = await verifySubmissionSaved(submission.id);
+
+                showToast("Работа записана в Google Таблицу");
+                const status = document.getElementById("apps-script-status");
+                if (status) {
+                    const audioMessage = savedItem.audioError
+                        ? "Работа есть в таблице, но аудио не сохранилось в Drive. Скачайте JSON как запасной вариант."
+                        : "Работа записана в таблицу. Учитель увидит её после нажатия «Показать отправленные работы».";
+                    status.textContent = audioMessage;
+                }
+            } catch (error) {
+                console.error(error);
+                showToast("Работа не записалась в таблицу. Обновите Code.gs и разверните новую версию Apps Script.", "error");
+                const status = document.getElementById("apps-script-status");
+                if (status) status.textContent = "Ошибка: " + (error.message || error) + ". Проверьте Code.gs, ссылку /exec и доступ «Все».";
+            } finally {
+                button.disabled = false;
+                button.textContent = oldText;
+            }
+        }
+
+        function downloadSubmission() {
+            if (!currentAudio) return showToast("Сначала запишите ответ", "error");
+            const submission = collectSubmission();
+            const safeName = currentUser.fullName.replace(/[^А-Яа-яA-Za-z0-9_-]+/g, "_");
+            downloadJSON(submission, `работа_${safeName}_${currentTask}.json`);
+            showToast("Файл работы скачан");
+        }
+
+        function downloadJSON(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function resetStudentProgress() {
+            renderTask();
+            showToast("Задание сброшено");
+        }
+
+        restoreSession();
+    </script>
+</body>
+</html>

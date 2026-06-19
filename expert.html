@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="sah">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Түмүк собеседование — учитель</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="index.html" aria-label="На главную">
+            <span class="brand-mark">С</span>
+            <span>
+                <strong>Саха тыла</strong>
+                <small>Проверка работ</small>
+            </span>
+        </a>
+        <nav class="topnav">
+            <a href="index.html">Ученик</a>
+            <a class="active" href="expert.html">Учитель / проверка</a>
+        </nav>
+    </header>
+
+    <main class="container wide">
+        <section class="hero-card">
+            <div>
+                <p class="eyebrow">Учуутал кабинета · ИУС 2.0</p>
+                <h1>Проверка записи ученика и протокол</h1>
+                <p class="lead">Загрузите JSON-файл работы ученика, прослушайте ответ, выставьте баллы по критериям и распечатайте готовый протокол.</p>
+            </div>
+            <div class="status-card" id="session-status">Вход не выполнен</div>
+        </section>
+
+        <section class="panel alert-info no-print">
+            <strong>Важно:</strong> учитель видит отправленные работы в бесплатной Google Таблице через Apps Script. Если Apps Script ещё не настроен, можно проверять по старому способу через JSON-файл.
+        </section>
+
+        <section id="auth-view" class="grid two auth-grid">
+            <div class="panel">
+                <h2>Вход учителя</h2>
+                <p class="muted">Используйте аккаунт учителя. Если аккаунта нет — зарегистрируйтесь справа.</p>
+                <label>Логин</label>
+                <input id="login-name" type="text" autocomplete="username" placeholder="логин учителя">
+                <label>Пароль</label>
+                <input id="login-password" type="password" autocomplete="current-password" placeholder="пароль">
+                <button class="primary full" onclick="loginTeacher()">Войти</button>
+                <p class="hint">Страница ученика находится здесь: <a href="index.html">index.html</a>.</p>
+            </div>
+            <div class="panel">
+                <h2>Регистрация учителя</h2>
+                <p class="muted">Код нужен, чтобы ученик случайно не зашёл в проверку.</p>
+                <label>ФИО учителя</label>
+                <input id="reg-fullname" type="text" placeholder="Фамилия Имя Отчество">
+                <label>Логин</label>
+                <input id="reg-login" type="text" autocomplete="username" placeholder="латиницей без пробелов">
+                <label>Пароль</label>
+                <input id="reg-password" type="password" autocomplete="new-password" placeholder="минимум 4 символа">
+                <label>Код учителя</label>
+                <input id="reg-teacher-code" type="password" placeholder="код доступа">
+                <button class="secondary full" onclick="registerTeacher()">Зарегистрироваться</button>
+            </div>
+        </section>
+
+        <section id="teacher-view" class="hidden">
+            <div class="teacher-head panel compact">
+                <div>
+                    <h2 id="teacher-title">Кабинет учителя</h2>
+                    <p class="muted">Загрузите работу ученика или заполните протокол вручную.</p>
+                </div>
+                <button class="danger-light" onclick="logout()">Выйти</button>
+            </div>
+
+            <div class="grid teacher-grid">
+                <aside class="panel no-print">
+                    <h2>1. Отправленные работы</h2>
+                    <button class="primary full" onclick="loadAppsScriptSubmissions()">🔄 Показать отправленные работы</button>
+                    <button class="ghost full" onclick="checkAppsScriptConnection()">🔎 Проверить подключение</button>
+                    <div id="apps-script-teacher-status" class="hint firebase-teacher-status">Если Apps Script настроен, здесь появятся работы учеников.</div>
+                    <div id="apps-script-submissions-list" class="work-list"></div>
+
+                    <h2>2. Работа ученика через JSON</h2>
+                    <label class="file-drop">
+                        <input id="submission-file" type="file" accept="application/json,.json" onchange="importSubmission(event)">
+                        <span>⬆ Загрузить JSON-файл ответа</span>
+                    </label>
+                    <button class="ghost full" onclick="createBlankProtocol()">Создать пустой протокол</button>
+                    <div id="import-info" class="result-box hidden"></div>
+
+                    <h2>3. Аудио</h2>
+                    <audio id="student-audio" controls class="full-audio"></audio>
+                    <p id="audio-hint" class="hint">После загрузки работы здесь появится запись ученика.</p>
+
+                    <h2>4. Комментарий учителя</h2>
+                    <textarea id="teacher-comment" rows="5" placeholder="Замечания, рекомендации, что улучшить"></textarea>
+                </aside>
+
+                <section class="panel protocol-panel" id="protocol-print-area">
+                    <div class="protocol-header">
+                        <div>
+                            <p class="eyebrow">Боротокуол</p>
+                            <h1>Түмүк собеседование сыанабылын боротокуола</h1>
+                        </div>
+                        <div class="verdict-card" id="verdict">БАРЫТА ТУРУОРУЛЛА ИЛИК</div>
+                    </div>
+
+                    <div class="student-form grid three">
+                        <label>Ученик<input id="student-name" type="text" placeholder="ФИО ученика" oninput="refreshProtocol()"></label>
+                        <label>Класс<input id="student-class" type="text" placeholder="9А" oninput="refreshProtocol()"></label>
+                        <label>Задание<input id="task-title" type="text" placeholder="Задание" oninput="refreshProtocol()"></label>
+                    </div>
+
+                    <div id="criteria-list" class="criteria-list"></div>
+
+                    <div class="score-footer">
+                        <div>
+                            <span>Уопсай балл</span>
+                            <strong><span id="total-score">0</span> / 16</strong>
+                        </div>
+                        <div>
+                            <span>Дата проверки</span>
+                            <strong id="check-date"></strong>
+                        </div>
+                    </div>
+
+                    <div class="print-comment">
+                        <h3>Комментарий учителя</h3>
+                        <p id="print-comment-text">—</p>
+                    </div>
+
+                    <div class="buttons no-print protocol-actions">
+                        <button class="secondary" onclick="saveCheckResult()">💾 Сохранить результат</button>
+                        <button class="primary" onclick="exportProtocol()">⬇ Скачать протокол</button>
+                        <button onclick="window.print()">🖨️ Печать</button>
+                    </div>
+                </section>
+            </div>
+
+            <section class="panel no-print">
+                <h2>Сохранённые проверки в этом браузере</h2>
+                <div id="saved-results" class="saved-list"></div>
+            </section>
+        </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="apps-script-config.js"></script>
+
+    <script>
+        const TEACHER_CODE = "SAHA2026";
+        const USERS_KEY = "saha_exam_users_v2";
+        const SESSION_KEY = "saha_exam_session_v2";
+        const RESULTS_KEY = "saha_exam_results_v2";
+        const APPS_SCRIPT_FALLBACK_MESSAGE = "Apps Script не настроен. Заполните apps-script-config.js или загрузите JSON-файл.";
+
+        const criteria = [
+            { group: "1 сорудах. Тэкиһи ааҕыы (ИЧ)", items: [
+                { code: "ИЧ1", text: "Ааҕыы интонацията сөп түбэһэр", score: 1 },
+                { code: "ИЧ2", text: "Тэми батыһан сөпкө ааҕыы", score: 1 }
+            ]},
+            { group: "2 сорудах. Тэкиһи кэпсээһин (ИП)", items: [
+                { code: "ИП1", text: "Сүрүн санаалары барытын эттэ", score: 2 },
+                { code: "ИП2", text: "Сыыһа өйдөбүлү киллэрбэтэ", score: 1 },
+                { code: "ИП3", text: "Цитатаны сөпкө туттубут", score: 1 },
+                { code: "ИП4", text: "Цитатаны уган кэпсииригэр сыыспыта суох", score: 1 }
+            ]},
+            { group: "3 сорудах. Монолог (ИМ)", items: [
+                { code: "ИМ1", text: "Сорудаҕы толордо, 10-тан тахса этии", score: 1 },
+                { code: "ИМ2", text: "Этиилэр логика өттүнэн сөптөр", score: 1 },
+                { code: "ИМ3", text: "Тыл арааһын сөпкө туттуу", score: 1 }
+            ]},
+            { group: "4 сорудах. Диалог (ИД)", items: [
+                { code: "ИД1", text: "Ыйытыыларга толору хоруйдаата", score: 1 },
+                { code: "ИД2", text: "Саҥарар култууратын тутуста", score: 1 }
+            ]},
+            { group: "Саҥа таба иһиллиитэ уонна грамотноһа (Р)", items: [
+                { code: "Р1", text: "Грамматика сыыһата суох", score: 1 },
+                { code: "Р2", text: "Тыллары сөпкө туттуу", score: 1 },
+                { code: "Р3", text: "Орфоэпия сыыһата суох", score: 1 },
+                { code: "Р4", text: "Тыл ситимэ сөпкө тутуллубут", score: 1 },
+                { code: "Р5", text: "Саҥарыы тэмигэр сыыһа суох", score: 1 }
+            ]}
+        ];
+
+        let currentUser = null;
+        let currentSubmission = null;
+
+        function getUsers() {
+            return JSON.parse(localStorage.getItem(USERS_KEY) || "[]");
+        }
+
+        function saveUsers(users) {
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        }
+
+        async function hashPassword(value) {
+            if (window.crypto && crypto.subtle) {
+                const data = new TextEncoder().encode(value);
+                const hash = await crypto.subtle.digest("SHA-256", data);
+                return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+            }
+            return btoa(unescape(encodeURIComponent(value)));
+        }
+
+        function makeId(prefix) {
+            return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+        }
+
+        function showToast(message, type = "ok") {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = "toast " + type;
+            setTimeout(() => toast.className = "toast hidden", 3200);
+        }
+
+        function getAppsScriptUrl() {
+            const rawUrl = String(window.APPS_SCRIPT_WEB_APP_URL || "").trim();
+            if (!rawUrl) return "";
+            return rawUrl.replace(/\/dev(\?.*)?$/, "/exec").replace(/\?.*$/, "");
+        }
+
+        function isAppsScriptConfigured() {
+            const url = getAppsScriptUrl();
+            return Boolean(url && (url.startsWith("https://script.google.com/") || url.startsWith("https://script.googleusercontent.com/")));
+        }
+
+        function setAppsScriptTeacherStatus(message, type = "") {
+            const box = document.getElementById("apps-script-teacher-status");
+            if (!box) return;
+            box.textContent = message;
+            box.className = "hint firebase-teacher-status " + type;
+        }
+
+        function appsScriptJsonp(action, params = {}) {
+            return new Promise((resolve, reject) => {
+                if (!isAppsScriptConfigured()) {
+                    reject(new Error("Apps Script не настроен"));
+                    return;
+                }
+                const callbackName = "iusCallback_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+                const query = new URLSearchParams({
+                    action,
+                    token: window.APPS_SCRIPT_TOKEN || "IUS2026",
+                    callback: callbackName,
+                    _: Date.now().toString(),
+                    ...params
+                });
+                const script = document.createElement("script");
+                const cleanup = () => {
+                    delete window[callbackName];
+                    script.remove();
+                };
+                window[callbackName] = data => {
+                    cleanup();
+                    resolve(data);
+                };
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error("Не удалось получить ответ Apps Script"));
+                };
+                script.src = getAppsScriptUrl() + "?" + query.toString();
+                document.body.appendChild(script);
+            });
+        }
+
+        async function postToAppsScript(action, payload) {
+            if (!isAppsScriptConfigured()) throw new Error("Apps Script не настроен");
+            await fetch(window.APPS_SCRIPT_WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ app: "saha-exam-v2", action, token: window.APPS_SCRIPT_TOKEN || "IUS2026", ...payload })
+            });
+        }
+
+        function formatDateTime(value) {
+            if (!value) return "—";
+            try { return new Date(value).toLocaleString("ru-RU"); }
+            catch (error) { return "—"; }
+        }
+
+        async function registerTeacher() {
+            const fullName = document.getElementById("reg-fullname").value.trim();
+            const login = document.getElementById("reg-login").value.trim().toLowerCase();
+            const password = document.getElementById("reg-password").value;
+            const teacherCode = document.getElementById("reg-teacher-code").value.trim();
+
+            if (!fullName || !login || !password) return showToast("Заполните ФИО, логин и пароль", "error");
+            if (password.length < 4) return showToast("Пароль должен быть минимум 4 символа", "error");
+            if (teacherCode !== TEACHER_CODE) return showToast("Неверный код учителя", "error");
+
+            const users = getUsers();
+            if (users.some(user => user.login === login)) return showToast("Такой логин уже есть", "error");
+
+            const user = {
+                id: makeId("teacher"),
+                role: "teacher",
+                fullName,
+                className: "",
+                login,
+                passwordHash: await hashPassword(password),
+                createdAt: new Date().toISOString()
+            };
+            users.push(user);
+            saveUsers(users);
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
+            showToast("Регистрация выполнена");
+            startSession(user);
+        }
+
+        async function loginTeacher() {
+            const login = document.getElementById("login-name").value.trim().toLowerCase();
+            const password = document.getElementById("login-password").value;
+            const passwordHash = await hashPassword(password);
+            const user = getUsers().find(item => item.login === login && item.role === "teacher" && item.passwordHash === passwordHash);
+            if (!user) return showToast("Логин или пароль неверный", "error");
+            localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id }));
+            startSession(user);
+        }
+
+        function restoreSession() {
+            const session = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+            if (!session) return;
+            const user = getUsers().find(item => item.id === session.userId);
+            if (!user || user.role !== "teacher") return;
+            startSession(user);
+        }
+
+        function startSession(user) {
+            currentUser = user;
+            document.getElementById("auth-view").classList.add("hidden");
+            document.getElementById("teacher-view").classList.remove("hidden");
+            document.getElementById("session-status").textContent = user.fullName;
+            document.getElementById("teacher-title").textContent = `Кабинет учителя: ${user.fullName}`;
+            renderCriteria();
+            createBlankProtocol();
+            renderSavedResults();
+            if (isAppsScriptConfigured()) {
+                loadAppsScriptSubmissions();
+            } else {
+                setAppsScriptTeacherStatus("Apps Script пока не настроен. Работы можно загрузить через JSON-файл.");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem(SESSION_KEY);
+            location.reload();
+        }
+
+        function renderCriteria() {
+            const list = document.getElementById("criteria-list");
+            list.innerHTML = criteria.map((group, groupIndex) => `
+                <section class="criteria-group">
+                    <h3>${group.group}</h3>
+                    ${group.items.map((item, itemIndex) => `
+                        <label class="criterion">
+                            <input type="checkbox" class="score" data-code="${item.code}" data-score="${item.score}" onchange="calcTotal()">
+                            <span><strong>${item.code}</strong> ${item.text}</span>
+                            <em>${item.score} балл${item.score > 1 ? "а" : ""}</em>
+                        </label>
+                    `).join("")}
+                </section>
+            `).join("");
+            calcTotal();
+        }
+
+        function calcTotal() {
+            let total = 0;
+            document.querySelectorAll(".score").forEach(box => {
+                if (box.checked) total += Number(box.dataset.score || 0);
+            });
+            document.getElementById("total-score").textContent = total;
+            const verdict = document.getElementById("verdict");
+            if (total >= 10) {
+                verdict.textContent = "ЗАЧЁТ 🎉";
+                verdict.className = "verdict-card ok";
+            } else if (total === 0) {
+                verdict.textContent = "БАРЫТА ТУРУОРУЛЛА ИЛИК";
+                verdict.className = "verdict-card";
+            } else {
+                verdict.textContent = "НЕЗАЧЁТ ❌";
+                verdict.className = "verdict-card bad";
+            }
+            refreshProtocol();
+        }
+
+        function applySubmissionData(data, sourceLabel = "Работа ученика") {
+            if (data.type !== "student-submission" || !data.student || !data.audio) {
+                showToast("Это не файл работы ученика", "error");
+                return false;
+            }
+            currentSubmission = data;
+            document.getElementById("student-name").value = data.student.fullName || "";
+            document.getElementById("student-class").value = data.student.className || "";
+            document.getElementById("task-title").value = data.task?.title || "";
+            const audioSrc = data.audio.dataUrl || data.audio.directUrl || data.audio.fileUrl || "";
+            document.getElementById("student-audio").src = audioSrc;
+            document.getElementById("audio-hint").textContent = data.audioError
+                ? `Работа пришла, но аудио не сохранилось: ${data.audioError}`
+                : `Файл: ${data.audio.fileName || "аудио"}`;
+            const importInfo = document.getElementById("import-info");
+            importInfo.classList.remove("hidden");
+            const infoLines = [
+                sourceLabel,
+                `Ученик: ${data.student.fullName || "—"}`,
+                `Класс: ${data.student.className || "—"}`,
+                `Задание: ${data.task?.title || "—"}`,
+                `Отправлено: ${formatDateTime(data.sentAt || data.createdAt)}`,
+                `Комментарий ученика: ${data.note || "—"}`
+            ];
+            if (data.audioError) infoLines.push(`Ошибка аудио: ${data.audioError}`);
+            importInfo.textContent = infoLines.join("\n");
+            clearScores();
+            refreshProtocol();
+            showToast("Работа ученика загружена");
+            return true;
+        }
+
+        function importSubmission(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    applySubmissionData(data, "Работа из JSON-файла");
+                } catch (error) {
+                    showToast("Не удалось прочитать JSON-файл", "error");
+                }
+            };
+            reader.readAsText(file, "utf-8");
+        }
+
+        async function checkAppsScriptConnection() {
+            if (!isAppsScriptConfigured()) {
+                setAppsScriptTeacherStatus(APPS_SCRIPT_FALLBACK_MESSAGE, "error");
+                return;
+            }
+            setAppsScriptTeacherStatus("Проверяем подключение...");
+            try {
+                const response = await appsScriptJsonp("ping");
+                if (!response || !response.ok) throw new Error(response?.error || "Нет ответа");
+                setAppsScriptTeacherStatus(`Подключение работает. В таблице строк: ${response.count || 0}`);
+                showToast("Apps Script подключён");
+            } catch (error) {
+                console.error(error);
+                setAppsScriptTeacherStatus("Подключение не работает: " + (error.message || error), "error");
+            }
+        }
+
+        async function loadAppsScriptSubmissions() {
+            const list = document.getElementById("apps-script-submissions-list");
+            list.innerHTML = "";
+            if (!isAppsScriptConfigured()) {
+                setAppsScriptTeacherStatus(APPS_SCRIPT_FALLBACK_MESSAGE, "error");
+                return;
+            }
+            setAppsScriptTeacherStatus("Загружаем отправленные работы...");
+            try {
+                const response = await appsScriptJsonp("list", { limit: "30" });
+                if (!response || !response.ok) throw new Error(response?.error || "Ошибка Apps Script");
+                const rows = response.items || [];
+                if (!rows.length) {
+                    setAppsScriptTeacherStatus("Пока нет отправленных работ.");
+                    return;
+                }
+                setAppsScriptTeacherStatus(`Найдено работ: ${rows.length}`);
+                list.innerHTML = rows.map(data => `
+                    <div class="work-card">
+                        <strong>${escapeHTML(data.student?.fullName || "Без имени")}</strong>
+                        <span>${escapeHTML(data.student?.className || "—")} · ${escapeHTML(data.task?.title || "Задание")} · ${formatDateTime(data.sentAt || data.createdAt)}</span>
+                        <em>${data.status === "checked" ? "Проверено" : (data.audioError ? "Пришла без аудио" : "Ожидает проверки")}</em>
+                        <button class="ghost full" onclick="openAppsScriptSubmission('${escapeHTML(data.id)}')">Открыть работу</button>
+                    </div>
+                `).join("");
+            } catch (error) {
+                console.error(error);
+                setAppsScriptTeacherStatus("Не удалось загрузить работы. Проверьте ссылку Apps Script и доступ к веб-приложению.", "error");
+            }
+        }
+
+        async function openAppsScriptSubmission(id) {
+            if (!isAppsScriptConfigured()) return showToast("Apps Script не настроен", "error");
+            try {
+                const response = await appsScriptJsonp("get", { id });
+                if (!response || !response.ok || !response.item) throw new Error(response?.error || "Работа не найдена");
+                const data = response.item;
+                data.appsScriptId = id;
+                applySubmissionData(data, "Работа из общей Google Таблицы");
+            } catch (error) {
+                console.error(error);
+                showToast("Не удалось открыть работу", "error");
+            }
+        }
+
+        function createBlankProtocol() {
+            currentSubmission = null;
+            document.getElementById("student-name").value = "";
+            document.getElementById("student-class").value = "";
+            document.getElementById("task-title").value = "";
+            document.getElementById("student-audio").removeAttribute("src");
+            document.getElementById("audio-hint").textContent = "После загрузки работы здесь появится запись ученика.";
+            document.getElementById("import-info").classList.add("hidden");
+            document.getElementById("import-info").textContent = "";
+            document.getElementById("teacher-comment").value = "";
+            clearScores();
+            refreshProtocol();
+        }
+
+        function clearScores() {
+            document.querySelectorAll(".score").forEach(box => box.checked = false);
+            calcTotal();
+        }
+
+        function refreshProtocol() {
+            document.getElementById("check-date").textContent = new Date().toLocaleDateString("ru-RU");
+            const comment = document.getElementById("teacher-comment")?.value.trim();
+            document.getElementById("print-comment-text").textContent = comment || "—";
+        }
+
+        document.addEventListener("input", event => {
+            if (event.target && event.target.id === "teacher-comment") refreshProtocol();
+        });
+
+        function collectResult() {
+            const selected = Array.from(document.querySelectorAll(".score"))
+                .filter(box => box.checked)
+                .map(box => ({ code: box.dataset.code, score: Number(box.dataset.score) }));
+            const total = selected.reduce((sum, item) => sum + item.score, 0);
+            return {
+                app: "saha-exam-v2",
+                type: "teacher-result",
+                version: 2,
+                id: makeId("result"),
+                checkedAt: new Date().toISOString(),
+                teacher: { id: currentUser.id, fullName: currentUser.fullName, login: currentUser.login },
+                student: {
+                    fullName: document.getElementById("student-name").value.trim(),
+                    className: document.getElementById("student-class").value.trim()
+                },
+                taskTitle: document.getElementById("task-title").value.trim(),
+                selected,
+                total,
+                maxTotal: 16,
+                verdict: total >= 10 ? "ЗАЧЁТ" : "НЕЗАЧЁТ",
+                teacherComment: document.getElementById("teacher-comment").value.trim(),
+                sourceSubmissionId: currentSubmission?.id || null,
+                sourceAppsScriptId: currentSubmission?.appsScriptId || currentSubmission?.id || null
+            };
+        }
+
+        async function saveCheckResult() {
+            const result = collectResult();
+            if (!result.student.fullName) return showToast("Укажите ФИО ученика", "error");
+            const saved = JSON.parse(localStorage.getItem(RESULTS_KEY) || "[]");
+            saved.unshift(result);
+            localStorage.setItem(RESULTS_KEY, JSON.stringify(saved.slice(0, 50)));
+            renderSavedResults();
+
+            if (result.sourceAppsScriptId && isAppsScriptConfigured()) {
+                try {
+                    await postToAppsScript("saveResult", {
+                        submissionId: result.sourceAppsScriptId,
+                        result: {
+                            status: "checked",
+                            checkedAt: result.checkedAt,
+                            teacher: result.teacher,
+                            total: result.total,
+                            maxTotal: result.maxTotal,
+                            verdict: result.verdict,
+                            teacherComment: result.teacherComment,
+                            selected: result.selected
+                        }
+                    });
+                    loadAppsScriptSubmissions();
+                    showToast("Результат сохранён и отмечен в Google Таблице");
+                    return;
+                } catch (error) {
+                    console.error(error);
+                    showToast("Сохранено в браузере, но не удалось обновить Google Таблицу", "warn");
+                    return;
+                }
+            }
+            showToast("Результат сохранён в этом браузере");
+        }
+
+        function exportProtocol() {
+            const result = collectResult();
+            if (!result.student.fullName) return showToast("Укажите ФИО ученика", "error");
+            const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Протокол проверки</title><style>
+                body{font-family:Arial,sans-serif;line-height:1.5;padding:30px;color:#111} h1{text-align:center} table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #999;padding:8px;text-align:left}.ok{color:#14883f}.bad{color:#b42318}.total{font-size:22px;font-weight:bold}
+            </style></head><body>
+                <h1>Түмүк собеседование сыанабылын боротокуола</h1>
+                <p><strong>Ученик:</strong> ${escapeHTML(result.student.fullName)}</p>
+                <p><strong>Класс:</strong> ${escapeHTML(result.student.className || "—")}</p>
+                <p><strong>Задание:</strong> ${escapeHTML(result.taskTitle || "—")}</p>
+                <p><strong>Учитель:</strong> ${escapeHTML(result.teacher.fullName)}</p>
+                <p><strong>Дата:</strong> ${new Date(result.checkedAt).toLocaleString("ru-RU")}</p>
+                <table><tr><th>Критерий</th><th>Балл</th></tr>
+                    ${criteria.flatMap(group => group.items).map(item => {
+                        const found = result.selected.find(s => s.code === item.code);
+                        return `<tr><td>${item.code} — ${escapeHTML(item.text)}</td><td>${found ? item.score : 0}</td></tr>`;
+                    }).join("")}
+                </table>
+                <p class="total">Итого: ${result.total} / ${result.maxTotal}</p>
+                <h2 class="${result.total >= 10 ? "ok" : "bad"}">${result.verdict}</h2>
+                <h3>Комментарий учителя</h3><p>${escapeHTML(result.teacherComment || "—")}</p>
+            </body></html>`;
+            const safeName = (result.student.fullName || "protocol").replace(/[^А-Яа-яA-Za-z0-9_-]+/g, "_");
+            downloadFile(html, `протокол_${safeName}.html`, "text/html;charset=utf-8");
+            showToast("Протокол скачан");
+        }
+
+        function renderSavedResults() {
+            const box = document.getElementById("saved-results");
+            const saved = JSON.parse(localStorage.getItem(RESULTS_KEY) || "[]");
+            if (!saved.length) {
+                box.innerHTML = "<p class='muted'>Пока нет сохранённых проверок.</p>";
+                return;
+            }
+            box.innerHTML = saved.map(item => `
+                <div class="saved-item">
+                    <strong>${escapeHTML(item.student.fullName || "Без имени")}</strong>
+                    <span>${escapeHTML(item.student.className || "—")} · ${item.total}/16 · ${item.verdict}</span>
+                    <small>${new Date(item.checkedAt).toLocaleString("ru-RU")}</small>
+                </div>
+            `).join("");
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHTML(value) {
+            return String(value || "").replace(/[&<>'"]/g, char => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
+            }[char]));
+        }
+
+        restoreSession();
+    </script>
+</body>
+</html>
