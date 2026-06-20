@@ -392,11 +392,12 @@
             document.getElementById("student-name").value = data.student.fullName || "";
             document.getElementById("student-class").value = data.student.className || "";
             document.getElementById("task-title").value = data.task?.title || "";
-            const audioSrc = data.audio.dataUrl || data.audio.directUrl || data.audio.fileUrl || "";
-            document.getElementById("student-audio").src = audioSrc;
-            document.getElementById("audio-hint").textContent = data.audioError
-                ? `Работа пришла, но аудио не сохранилось: ${data.audioError}`
-                : `Файл: ${data.audio.fileName || "аудио"}`;
+
+            const audio = document.getElementById("student-audio");
+            audio.removeAttribute("src");
+            audio.load();
+            loadAudioForSubmission(data);
+
             const importInfo = document.getElementById("import-info");
             importInfo.classList.remove("hidden");
             const infoLines = [
@@ -408,11 +409,62 @@
                 `Комментарий ученика: ${data.note || "—"}`
             ];
             if (data.audioError) infoLines.push(`Ошибка аудио: ${data.audioError}`);
+            if (data.audio?.fileUrl) infoLines.push(`Ссылка Drive: ${data.audio.fileUrl}`);
             importInfo.textContent = infoLines.join("\n");
             clearScores();
             refreshProtocol();
             showToast("Работа ученика загружена");
             return true;
+        }
+
+        async function loadAudioForSubmission(data) {
+            const audio = document.getElementById("student-audio");
+            const hint = document.getElementById("audio-hint");
+
+            if (data.audioError) {
+                hint.textContent = `Работа пришла, но аудио не сохранилось: ${data.audioError}`;
+                return;
+            }
+
+            if (data.audio?.dataUrl) {
+                audio.src = data.audio.dataUrl;
+                audio.load();
+                hint.textContent = `Файл: ${data.audio.fileName || "аудио"}`;
+                return;
+            }
+
+            if (data.audio?.fileId && isAppsScriptConfigured()) {
+                hint.textContent = "Загружаем аудио из Google Drive...";
+                try {
+                    const response = await appsScriptJsonp("audioData", { id: data.id });
+                    if (!response || !response.ok || !response.dataUrl) {
+                        throw new Error(response?.error || "Apps Script не вернул аудио");
+                    }
+                    audio.src = response.dataUrl;
+                    audio.load();
+                    hint.textContent = `Файл: ${response.fileName || data.audio.fileName || "аудио"}`;
+                    return;
+                } catch (error) {
+                    console.error(error);
+                    const driveLink = data.audio?.fileUrl ? " Откройте ссылку Drive в блоке информации ниже." : "";
+                    hint.textContent = `Не удалось встроить аудио: ${error.message}.${driveLink}`;
+                    return;
+                }
+            }
+
+            if (data.audio?.directUrl) {
+                audio.src = data.audio.directUrl;
+                audio.load();
+                hint.textContent = `Файл: ${data.audio.fileName || "аудио"}`;
+                return;
+            }
+
+            if (data.audio?.fileUrl) {
+                hint.textContent = "Аудио есть в Google Drive, но нет прямой ссылки для встроенного проигрывания. Откройте ссылку Drive в блоке информации ниже.";
+                return;
+            }
+
+            hint.textContent = "У этой работы нет аудиофайла.";
         }
 
         function importSubmission(event) {
