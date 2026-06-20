@@ -3,4 +3,4 @@
 // Пример:
 // window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec";
 
-window.APPS_SCRIPT_WEB_APP_URL = "";
+window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxkXzgdtLZZiUxwcG5gs2NZOzX-ONjt-GMkyQPkztwXC3_BfA-p38mlh8bYq4S6FCR_Ww/exec";
