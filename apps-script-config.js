@@ -2,5 +2,4 @@
 // Вставьте сюда ссылку веб-приложения Apps Script. Она должна заканчиваться на /exec
 // Пример:
 // window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec";
-
-window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxkXzgdtLZZiUxwcG5gs2NZOzX-ONjt-GMkyQPkztwXC3_BfA-p38mlh8bYq4S6FCR_Ww/exec";
+window.APPS_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyvXzqqvzII_h0TogQw0-GEs9SiQZhReWbIl-ktxKPVtpqkloGlt-zMxOdRs6MZowaIpQ/exec";
